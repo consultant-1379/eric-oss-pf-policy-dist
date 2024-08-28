@@ -1,0 +1,100 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ template "eric-oss-pf-policy-dist.name" . }}-rbac-configuration-configmap
+  labels:
+    app: {{ template "eric-oss-pf-policy-dist.name" . }}-rbac-configuration-configmap
+  {{- include "eric-oss-pf-policy-dist.kubernetes-io-info" .| nindent 4 }}
+  annotations:
+  {{- include "eric-oss-pf-policy-dist.eric-product-info" .| nindent 4 }}
+data:
+  rbac-configuration.json: |
+      {
+        "roles": [{
+                        "name": "PF_DISTRIBUTION_Admin",
+                        "attributes": {
+                                "type": ["internal"]
+                        }
+                }, {
+                        "name": "PF_DISTRIBUTION_User",
+                "attributes": {
+                                "type": ["internal"]
+                        }
+                }
+        ],
+        "authorization": {
+                "resources": [{
+                        "name": "DISTRIBUTION Endpoints",
+                        "type": "urn:eo:pf:resources:distribution",
+                        "ownerManagedAccess": false,
+                        "attributes": {},
+                        "uris": [
+                            "/policy/dist/",
+                            "/policy/dist/**"
+                        ],
+                        "scopes": [{
+                                "name": "GET"
+                            }, {
+                                "name": "POST"
+                            }, {
+                                "name": "DELETE"
+                            }, {
+                                "name": "PATCH"
+                            }, {
+                                "name": "PUT"
+                            }
+                        ]
+                    }
+                ],
+                "policies": [{
+                        "name": "Is PF DISTRIBUTION Admin",
+                        "type": "role",
+                        "logic": "POSITIVE",
+                        "decisionStrategy": "UNANIMOUS",
+                        "config": {
+                                "roles": "[{\"id\":\"PF_DISTRIBUTION_Admin\",\"required\":false}]"
+                        }
+                     }, {
+                        "name": "Is PF DISTRIBUTION User",
+                        "type": "role",
+                        "logic": "POSITIVE",
+                        "decisionStrategy": "UNANIMOUS",
+                        "config": {
+                                "roles": "[{\"id\":\"PF_DISTRIBUTION_User\",\"required\":false}]"
+                        }
+                     }, {
+                        "name": "Admin EO DISTRIBUTION",
+                        "type": "scope",
+                        "logic": "POSITIVE",
+                        "decisionStrategy": "AFFIRMATIVE",
+                        "config": {
+                                "resources": "[\"DISTRIBUTION Endpoints\"]",
+                                "scopes": "[\"PUT\",\"POST\",\"DELETE\",\"PATCH\"]",
+                                "applyPolicies": "[\"Is PF DISTRIBUTION Admin\"]"
+                        }
+                     },{
+                        "name": "View DISTRIBUTION Endpoints",
+                        "type": "scope",
+                        "logic": "POSITIVE",
+                        "decisionStrategy": "AFFIRMATIVE",
+                        "config": {
+                                "resources": "[\"DISTRIBUTION Endpoints\"]",
+                                "scopes": "[\"GET\"]",
+                                "applyPolicies": "[\"Is PF DISTRIBUTION Admin\",\"Is PF DISTRIBUTION User\"]"
+                        }
+                    }
+                ],
+                "scopes": [{
+                                "name": "GET"
+                            }, {
+                                "name": "POST"
+                            }, {
+                                "name": "DELETE"
+                            }, {
+                                "name": "PATCH"
+                            }, {
+                                "name": "PUT"
+                            }
+                ]
+        }
+      }

@@ -1,0 +1,105 @@
+global:
+  persistence: {}
+  registry:
+    url: armdocker.rnd.ericsson.se
+  hosts:
+    iam: "iam.ericsson.com"
+  iam:
+    clientId: "eo"
+    adminSecret: eric-sec-access-mgmt-creds
+    userKey: kcadminid
+    passwordKey: kcpasswd
+    cacert:
+      secretName: iam-cacert-secret
+      key: tls.crt
+      filePath: iam/ca.crt
+
+imageCredentials:
+  # repoPath include the image path relative to the registry url, excluding image name
+  policyDistImage:
+    repoPath: # see default in eric-product-info.yaml
+    registry:
+      imagePullPolicy: IfNotPresent
+  keycloakImage:
+    repoPath: # see default in eric-product-info.yaml
+    registry:
+      imagePullPolicy: IfNotPresent
+
+#################################################################
+# Application configuration defaults.
+#############################################################
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 25%
+    maxSurge: 25%
+# flag to enable debugging - application support required
+debugEnabled: false
+
+# application configuration
+
+# default number of instances
+replicaCount: 1
+
+nodeSelector: {}
+
+affinity: {}
+
+port:
+  http: 6969
+  https: 443
+  jvmDebug: 9001
+  jvmJmxRemote: 9002
+
+# probe configuration parameters
+liveness:
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  # necessary to disable liveness probe when setting breakpoints
+  # in debugger so K8s doesn't restart unresponsive container
+  enabled: true
+
+readiness:
+  initialDelaySeconds: 60
+  periodSeconds: 10
+
+service:
+  port:
+    http: 6969
+    https: 443
+  type: ClusterIP
+  name: policy-distribution
+  portName: policy-distribution
+  externalPort: 6969
+  internalPort: 6969
+
+ingress:
+  enabled: false
+
+resources:
+  policydist:
+    requests:
+      memory: "350M"
+      cpu: 100m
+      ephemeral-storage:
+    limits:
+      memory: "500M"
+      cpu: 300m
+      ephemeral-storage:
+  keycloak:
+    requests:
+      memory: 1Gi
+      cpu: 100m
+      ephemeral-storage:
+    limits:
+      memory: 3Gi
+      cpu: 1000m
+      ephemeral-storage:
+
+labels: {}
+terminationGracePeriodSeconds: 30
+
+podPriority:
+  eric-oss-pf-policy-dist:
+    priorityClassName:

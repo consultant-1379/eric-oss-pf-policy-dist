@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "eric-oss-pf-policy-dist-deployment.name" . }}
+  labels:
+    app: {{ template "eric-oss-pf-policy-dist-deployment.name" . }}
+  {{- include "eric-oss-pf-policy-dist.kubernetes-io-info" .| nindent 4 }}
+  annotations:
+  {{- include "eric-oss-pf-policy-dist.eric-product-info" .| nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      annotations:
+      {{- include "eric-oss-pf-policy-dist.eric-product-info" .| nindent 8 }}
+      labels:
+        app: {{ template "eric-oss-pf-policy-dist.name" . }}
+    {{- include "eric-oss-pf-policy-dist.kubernetes-io-info" .| nindent 8 }}
+    spec:
+      serviceAccountName: {{ template "eric-oss-pf-policy-dist.name" . }}-sa
+      {{- if  .Values.imageCredentials.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imageCredentials.pullSecret | quote }}
+      {{- else if .Values.global.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.global.pullSecret | quote }}
+      {{- end }}
+      
+      {{- if (index .Values.podPriority "eric-oss-pf-policy-dist" "priorityClassName") }}
+      priorityClassName: {{ index .Values.podPriority "eric-oss-pf-policy-dist" "priorityClassName" | quote }}
+      {{- end }}
+      
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ template "eric-oss-pf-policy-dist.mainImagePath" . }}"
+          imagePullPolicy: {{ include "eric-oss-pf-policy-dist.imagePullPolicy" $ | quote }}
+          command: ["/opt/app/policy/distribution/bin/policy-dist.sh"]
+          args: ["/opt/app/policy/distribution/etc/mounted/config.json"]
+          
+          resources:
+            requests:
+              memory: {{ .Values.resources.policydist.requests.memory | quote}}
+              cpu: {{ .Values.resources.policydist.requests.cpu}}
+              
+              {{- if index $.Values "resources" "policydist" "requests" "ephemeral-storage" }}
+              ephemeral-storage: {{ index $.Values "resources" "policydist" "requests" "ephemeral-storage" | quote }}
+              {{- end }} 
+            limits:
+              memory: {{ .Values.resources.policydist.limits.memory | quote}}
+              cpu: {{ .Values.resources.policydist.limits.cpu }}
+              
+              {{- if index $.Values "resources" "policydist" "limits" "ephemeral-storage" }}
+              ephemeral-storage: {{ index $.Values "resources" "policydist" "limits" "ephemeral-storage" | quote }}
+              {{- end }}
+          
+          ports:
+          - name: http
+            containerPort: {{ .Values.port.http }}
+          - name: https
+            containerPort: {{ .Values.port.https }}
+          {{- if .Values.debug }}
+          - name: jvm-debug
+            containerPort: {{ .Values.port.jvmDebug }}
+          - name: jvm-jmx-remote
+            containerPort: {{ .Values.port.jvmJmxRemote }}
+          {{- end }}
+          {{- if eq .Values.liveness.enabled true }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.service.internalPort }}
+            initialDelaySeconds: {{ .Values.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.liveness.periodSeconds }}
+          {{ end -}}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.service.internalPort }}
+            initialDelaySeconds: {{ .Values.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readiness.periodSeconds }}
+          volumeMounts:
+          - mountPath: /etc/localtime
+            name: localtime
+            readOnly: true
+          - mountPath: /opt/app/policy/distribution/etc/mounted
+            name: distributionconfig
+          securityContext:
+            allowPrivilegeEscalation: true
+            runAsNonRoot: true
+            runAsUser: 1000
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.nodeSelector }}
+      {{- else if .Values.global.nodeSelector }}
+      nodeSelector:
+        {{ toYaml .Values.global.nodeSelector }}
+      {{- end }}
+        {{- if .Values.affinity }}
+        affinity:
+{{ toYaml .Values.affinity | indent 10 }}
+        {{- end }}
+      volumes:
+        - name: localtime
+          hostPath:
+             path: /etc/localtime
+        - name: distributionconfig
+          configMap:
+            name: {{ include "eric-oss-pf-policy-dist.name" . }}
+            defaultMode: 0755
+
